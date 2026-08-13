@@ -29,7 +29,6 @@ import pymysql
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_groq import ChatGroq
 from langchain_community.vectorstores import Chroma
 
 import requests
@@ -63,7 +62,36 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
 
 embeddings = SimpleHFEmbeddings(api_key=os.environ.get("HF_API_TOKEN"))
-llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.2, groq_api_key=os.environ.get("GROQ_API_KEY"))
+HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
+
+def ask_huggingface(prompt):
+    url = "https://router.huggingface.co/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "model": "meta-llama/Llama-3.1-8B-Instruct",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.2,
+        "max_tokens": 500
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+
+    if response.status_code != 200:
+        raise Exception(f"Hugging Face API error: {response.text}")
+
+    result = response.json()
+
+    return result["choices"][0]["message"]["content"]
 
 
 def get_db():
@@ -259,7 +287,7 @@ def chat(document_id):
             "If the answer isn't in the context, say you don't know.\n\n"
             f"Context:\n{context}\n\nQuestion: {question}"
         )
-        response = llm.invoke(prompt)
+
         answer = response.content
         sources = [{"text": r.page_content[:200]} for r in results]
 
