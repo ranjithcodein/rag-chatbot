@@ -1,14 +1,5 @@
 """
-RAG Document Q&A Chatbot — Flask backend (full version)
-Tools: Flask, LangChain, OpenAI API, ChromaDB, MySQL, JWT auth
-
-Setup:
-    pip install -r requirements.txt
-    mysql -u root -p < schema.sql
-    export OPENAI_API_KEY="sk-..."
-    export JWT_SECRET_KEY="some-random-secret"
-    export DB_PASSWORD="your-mysql-password"
-    python app.py
+RAG Document Q&A Chatbot — Flask backend (PostgreSQL + HuggingFace version)
 """
 
 import os
@@ -65,33 +56,23 @@ os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
 embeddings = SimpleHFEmbeddings(api_key=os.environ.get("HF_API_TOKEN"))
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
 
+
 def ask_huggingface(prompt):
     url = "https://router.huggingface.co/v1/chat/completions"
-
     headers = {
         "Authorization": f"Bearer {HF_API_TOKEN}",
         "Content-Type": "application/json"
     }
-
     data = {
         "model": "meta-llama/Llama-3.1-8B-Instruct",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2,
         "max_tokens": 500
     }
-
     response = requests.post(url, headers=headers, json=data)
-
     if response.status_code != 200:
         raise Exception(f"Hugging Face API error: {response.text}")
-
     result = response.json()
-
     return result["choices"][0]["message"]["content"]
 
 
@@ -115,6 +96,7 @@ def signup():
 
     if not all([name, email, password]):
         return jsonify({"error": "Name, email, and password are required."}), 400
+
     password_hash = generate_password_hash(password)
     conn = get_db()
     try:
@@ -289,7 +271,7 @@ def chat(document_id):
             f"Context:\n{context}\n\nQuestion: {question}"
         )
 
-        answer  = ask_huggingface(prompt)
+        answer = ask_huggingface(prompt)
         sources = [{"text": r.page_content[:200]} for r in results]
 
         with conn.cursor() as cur:
