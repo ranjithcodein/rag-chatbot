@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Upload, Send, FileText, Loader2, X, BookOpen, LogOut } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://rag-chatbot-project-1-6yez.onrender.com";
 
 export default function RagChatInterface({ user, token, onLogout }) {
   const [file, setFile] = useState(null);

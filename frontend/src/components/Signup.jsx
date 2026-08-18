@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://rag-chatbot-project-1-6yez.onrender.com";
 
 export default function Signup({ onLogin, switchToLogin }) {
   const [name, setName] = useState("");
