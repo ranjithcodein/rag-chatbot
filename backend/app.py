@@ -115,7 +115,6 @@ def signup():
 
     if not all([name, email, password]):
         return jsonify({"error": "Name, email, and password are required."}), 400
-
     password_hash = generate_password_hash(password)
     conn = get_db()
     try:
@@ -125,16 +124,16 @@ def signup():
                 return jsonify({"error": "An account with this email already exists."}), 409
 
             cur.execute(
-        "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
-        (name, email, password_hash),
-    )
-    user_id = cur.fetchone()["id"]
-    conn.commit()
+                "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
+                (name, email, password_hash),
+            )
+            user_id = cur.fetchone()["id"]
+            conn.commit()
 
-    token = create_access_token(identity=str(user_id))
-    return jsonify({"token": token, "user": {"id": user_id, "name": name, "email": email}}), 201
+        token = create_access_token(identity=str(user_id))
+        return jsonify({"token": token, "user": {"id": user_id, "name": name, "email": email}}), 201
     finally:
-    conn.close()
+        conn.close()
 
 
 @app.route("/api/login", methods=["POST"])
