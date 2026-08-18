@@ -25,7 +25,8 @@ from flask_jwt_extended import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-import pymysql
+import psycopg2
+import psycopg2.extras
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -95,12 +96,13 @@ def ask_huggingface(prompt):
 
 
 def get_db():
-    return pymysql.connect(
+    return psycopg2.connect(
         host=os.environ.get("DB_HOST", "localhost"),
+        port=os.environ.get("DB_PORT", "5432"),
         user=os.environ.get("DB_USER", "root"),
         password=os.environ.get("DB_PASSWORD", ""),
-        database=os.environ.get("DB_NAME", "rag_chatbot"),
-        cursorclass=pymysql.cursors.DictCursor,
+        dbname=os.environ.get("DB_NAME", "rag_chatbot"),
+        cursor_factory=psycopg2.extras.RealDictCursor,
     )
 
 
@@ -123,16 +125,16 @@ def signup():
                 return jsonify({"error": "An account with this email already exists."}), 409
 
             cur.execute(
-                "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
-                (name, email, password_hash),
-            )
-            conn.commit()
-            user_id = cur.lastrowid
+        "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
+        (name, email, password_hash),
+    )
+    user_id = cur.fetchone()["id"]
+    conn.commit()
 
-        token = create_access_token(identity=str(user_id))
-        return jsonify({"token": token, "user": {"id": user_id, "name": name, "email": email}}), 201
+    token = create_access_token(identity=str(user_id))
+    return jsonify({"token": token, "user": {"id": user_id, "name": name, "email": email}}), 201
     finally:
-        conn.close()
+    conn.close()
 
 
 @app.route("/api/login", methods=["POST"])
@@ -212,11 +214,11 @@ def upload_document():
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO documents (user_id, original_name, chroma_collection) VALUES (%s, %s, %s)",
+                    "INSERT INTO documents (user_id, original_name, chroma_collection) VALUES (%s, %s, %s) RETURNING id",
                     (user_id, filename, collection_name),
                 )
+                document_id = cur.fetchone()["id"]
                 conn.commit()
-                document_id = cur.lastrowid
         finally:
             conn.close()
 
@@ -288,7 +290,7 @@ def chat(document_id):
             f"Context:\n{context}\n\nQuestion: {question}"
         )
 
-        answer = response.content
+        answer  = ask_huggingface(prompt)
         sources = [{"text": r.page_content[:200]} for r in results]
 
         with conn.cursor() as cur:
